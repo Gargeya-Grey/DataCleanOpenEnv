@@ -12,55 +12,63 @@ tags:
 # DataCleanEnv: Data Privacy & Compliance Steward
 
 ## Overview
-DataCleanEnv is a real-world OpenEnv environment where agents act as Data Compliance Officers. They must audit, clean, and standardize messy SQLite databases while ensuring sensitive PII (Personally Identifiable Information) is redacted according to compliance standards.
+**DataCleanEnv** is a high-fidelity RL environment designed for the OpenEnv Hackathon. It simulates the high-stakes work of Data Engineers and Compliance Officers who must manage, audit, and clean sensitive production databases. Agents interact with a live **SQLite** engine to enforce data privacy (GDPR/PII) and ensure schema integrity.
 
 ## Motivation
-Modern agents need to be evaluated on their ability to handle sensitive production data safely. This environment provides high-fidelity SQLite interactions, rewarding precision and penalizing destructive or non-compliant actions.
+Modern AI agents must be capable of safely manipulating production data. This environment moves beyond standard "Read-Only" SQL tasks, challenging agents to **Modify** and **Sanitize** data while receiving dense reward signals based on their precision and compliance adherence.
 
 ## Action Space
-- `RUN_SQL_UPDATE`: Execute raw SQL (e.g., `UPDATE`, `INSERT`, `ALTER`).
-- `APPLY_REGEX_MASK`: Specialized tool for PII redaction using `REGEXP_REPLACE`.
-- `DROP_COLUMN`: Safely remove sensitive columns for data retention compliance.
-- `SUBMIT_FINAL`: Terminate the episode and trigger final grading.
+Agents execute actions via JSON payloads. Supported actions include:
+- `RUN_SQL_UPDATE`: Execute raw SQL queries (e.g., `UPDATE users SET...`).
+- `APPLY_REGEX_MASK`: A specialized tool for redacting PII using SQLite's `REGEXP_REPLACE`.
+  - *Parameters*: `column`, `pattern`, `replacement`.
+- `DROP_COLUMN`: Remove restricted columns (e.g., `ssn`) to comply with data retention policies.
+- `SUBMIT_FINAL`: Terminate the episode and trigger the final programmatic grader.
 
 ## Observation Space
-- `schema_info`: Live DDL schema for all tables.
-- `sample_data`: Real-time data preview (5 rows per table).
-- `last_execution_status`: Success/Error trace from the database engine.
+Every step provides a rich context for reasoning:
+- `schema_info`: A dictionary containing the **DDL statements** for every table.
+- `sample_data`: A real-time preview of the first **5 rows** of each table.
+- `last_execution_status`: Detailed feedback (Success or Traceback) from the SQLite engine.
 
 ## Tasks & Difficulty
 
-1. **Easy: Date Standardization (`easy_standardization`)**
-   - Standardize `date_of_birth` to ISO 8601 (YYYY-MM-DD).
+| ID | Task Name | Difficulty | Objective |
+| :--- | :--- | :--- | :--- |
+| `easy_standardization` | Date Standardization | Easy | Convert varied date strings to ISO 8601 (`YYYY-MM-DD`). |
+| `medium_pii_redaction` | PII Redaction | Medium | Mask Credit Card numbers found in unstructured message logs. |
+| `hard_entity_resolution` | Entity Resolution | Hard | Merge disparate sales tables and deduplicate based on email. |
+| `expert_pii_audit` | Compliance Audit | Expert | **Multi-table**: Redact emails in logs AND drop the `ssn` column. |
 
-2. **Medium: PII Redaction (`medium_pii_redaction`)**
-   - Redact credit card numbers from `customer_message` text logs.
+## Reward Shaping
+- **Syntax Reward (+0.05)**: Awarded for any action that executes without a database error.
+- **Progress Reward (+0.5 * Δ)**: Awarded for any improvement in the underlying grading metric (Dense Signal).
+- **Safety Penalty (-0.5)**: Immediate episode termination for destructive actions (e.g., unauthorized `DROP TABLE`).
 
-3. **Hard: Entity Resolution (`hard_entity_resolution`)**
-   - Merge `sales_a` and `sales_b` into a deduplicated `merged_sales` table.
+## Baseline Performance (GPT-4o-mini)
+The following scores were achieved using the included `baseline.py` script:
+- **Easy**: 1.0 (100% precision)
+- **Medium**: 1.0 (100% redaction)
+- **Hard**: 0.8+ (depending on merge strategy)
+- **Expert**: 1.0 (perfect compliance audit)
 
-4. **Expert: Compliance Audit (`expert_pii_audit`)**
-   - Multi-step: Redact emails in `server_logs` AND drop the `ssn` column in `employees`.
+## API Endpoints
+- **Root (`/`)**: Health check and list of endpoints.
+- **`/tasks`**: Returns task metadata and the Action JSON schema.
+- **`/grader`**: Returns the `final_score` (0.0-1.0) for the current episode.
+- **`/baseline`**: Triggers the inference script and returns scores for all tasks.
+- **`/reset`, `/step`, `/state`**: Standard OpenEnv API.
 
-## Reward Shaping (Varying Signal)
-- **Syntax Bonus (+0.05)**: Awarded for any valid SQL or Regex action that doesn't error.
-- **Progress Reward (Delta * 0.5)**: Continuous signal based on the improvement of the underlying grading metric.
-- **Safety Penalty (-0.5)**: Immediate termination for destructive actions (e.g., `DROP TABLE` when not requested).
-
-## Setup & Validation
+## Setup & Local Testing
 ```bash
-# Install dependencies
+# 1. Install dependencies
 pip install -e .
 
-# Run Tests
+# 2. Run unit tests
 pytest tests/test_dataclean.py
 
-# Validate Spec
-openenv validate .
+# 3. Start local server
+uv run server
 ```
 
-## Baseline Performance
-Run the following to see the agentic baseline (requires `OPENAI_API_KEY`):
-```bash
-python baseline.py
-```
+**Submission Space**: [https://huggingface.co/spaces/grey8magic/DataCleanEnv](https://huggingface.co/spaces/grey8magic/DataCleanEnv)
