@@ -9,7 +9,9 @@ from models import MyAction, MyObservation, MyState, ActionType
 
 # Required Environment Variables
 API_BASE_URL = os.getenv("API_BASE_URL", "https://api.openai.com/v1")
-API_KEY = os.getenv("HF_TOKEN") or os.getenv("OPENAI_API_KEY")
+HF_TOKEN = os.getenv("HF_TOKEN")
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+API_KEY = HF_TOKEN or OPENAI_API_KEY
 MODEL_NAME = os.getenv("MODEL_NAME", "gpt-4o-mini")
 
 # Environment Config
@@ -80,7 +82,7 @@ When finished, respond with action_type SUBMIT_FINAL."""
             print(f"Step {step+1}: Reward {reward}, Done: {done}")
             
             if done:
-                final_score = obs.info.get("final_score", 0.0)
+                final_score = obs.metadata.get("final_score", 0.0)
             
             messages.append({"role": "assistant", "content": action_text})
             messages.append({"role": "user", "content": f"Observation: {json.dumps(obs.to_dict())}\nReward: {reward}"})

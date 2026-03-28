@@ -27,7 +27,7 @@ class DataCleanEnvClient(EnvClient[MyAction, MyObservation, MyState]):
             last_execution_status=obs_data.get("last_execution_status", ""),
             reward=payload.get("reward", 0.0),
             done=payload.get("done", False),
-            info=payload.get("info", {})
+            metadata=payload.get("metadata", {})
         )
         return StepResult(
             observation=observation,
