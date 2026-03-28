@@ -1,7 +1,16 @@
 version: "1.0"
-name: DataCleanOpenEnv
+name: datacleanenv
 description: "Data Privacy & Compliance Steward: Audit and clean messy SQLite databases."
+author: "Gargeya"
 tags: ["openenv", "data-engineering", "sql", "compliance", "regex", "entity-resolution"]
+
+docker:
+  image_name: datacleanenv
+  dockerfile: Dockerfile
+
+deployment:
+  platform: huggingface
+  space_id: grey8magic/DataCleanOpenEnv
 
 api:
   type: fastapi

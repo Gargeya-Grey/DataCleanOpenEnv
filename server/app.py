@@ -95,17 +95,17 @@ class DataCleanEnv(Environment):
         self._env_state.step_count += 1
         reward = 0.0
         done = False
-        info = {}
+        metadata = {}
         status = "Success"
 
         if self._env_state.step_count > self._env_state.max_steps:
             done = True
-            info["error"] = "max_steps_exceeded"
+            metadata["error"] = "max_steps_exceeded"
             status = "Max steps exceeded."
             self._env_state.final_score = self._grade_task()
             obs = self._get_observation(status)
             obs.done = True
-            obs.info = info
+            obs.metadata = metadata
             return obs
 
         try:
@@ -113,7 +113,7 @@ class DataCleanEnv(Environment):
                 self._env_state.final_score = self._grade_task()
                 reward = self._env_state.final_score
                 done = True
-                info["final_score"] = self._env_state.final_score
+                metadata["final_score"] = self._env_state.final_score
                 status = f"Task submitted. Score: {self._env_state.final_score}"
                 
             elif action.action_type == ActionType.RUN_SQL_UPDATE:
@@ -122,7 +122,7 @@ class DataCleanEnv(Environment):
                     reward = -0.5
                     done = True
                     status = "Destructive out-of-scope DROP TABLE detected. Episode terminated."
-                    info["error"] = "destructive_action"
+                    metadata["error"] = "destructive_action"
                 else:
                     self.cursor.execute(query)
                     self.conn.commit() # MUTATION COMMIT
@@ -157,7 +157,7 @@ class DataCleanEnv(Environment):
         obs = self._get_observation(status)
         obs.reward = reward
         obs.done = done
-        obs.info = info
+        obs.metadata = metadata
         return obs
 
     def _get_observation(self, status: str) -> MyObservation:
