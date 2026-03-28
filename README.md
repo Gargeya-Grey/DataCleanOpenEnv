@@ -1,5 +1,5 @@
 ---
-title: DataCleanEnv
+title: DataCleanOpenEnv
 emoji: 🛡️
 colorFrom: blue
 colorTo: green
@@ -9,10 +9,10 @@ tags:
   - openenv
 ---
 
-# DataCleanEnv: Data Privacy & Compliance Steward
+# DataCleanOpenEnv: Data Privacy & Compliance Steward
 
 ## Overview
-**DataCleanEnv** is a high-fidelity RL environment designed for the OpenEnv Hackathon. It simulates the high-stakes work of Data Engineers and Compliance Officers who must manage, audit, and clean sensitive production databases. Agents interact with a live **SQLite** engine to enforce data privacy (GDPR/PII) and ensure schema integrity.
+**DataCleanOpenEnv** is a high-fidelity RL environment designed for the OpenEnv Hackathon. It simulates the high-stakes work of Data Engineers and Compliance Officers who must manage, audit, and clean sensitive production databases. Agents interact with a live **SQLite** engine to enforce data privacy (GDPR/PII) and ensure schema integrity.
 
 ## Motivation
 Modern AI agents must be capable of safely manipulating production data. This environment moves beyond standard "Read-Only" SQL tasks, challenging agents to **Modify** and **Sanitize** data while receiving dense reward signals based on their precision and compliance adherence.
@@ -27,7 +27,7 @@ Agents execute actions via JSON payloads. Supported actions include:
 
 ## Observation Space
 Every step provides a rich context for reasoning:
-- `schema_info`: A dictionary containing the **DDL statements** for every table.
+- `schema_info`: A dictionary containing the **column names and data types** for every table.
 - `sample_data`: A real-time preview of the first **5 rows** of each table.
 - `last_execution_status`: Detailed feedback (Success or Traceback) from the SQLite engine.
 
@@ -37,7 +37,7 @@ Every step provides a rich context for reasoning:
 | :--- | :--- | :--- | :--- |
 | `easy_standardization` | Date Standardization | Easy | Convert varied date strings to ISO 8601 (`YYYY-MM-DD`). |
 | `medium_pii_redaction` | PII Redaction | Medium | Mask Credit Card numbers found in unstructured message logs. |
-| `hard_entity_resolution` | Entity Resolution | Hard | Merge disparate sales tables and deduplicate based on email. |
+| `hard_entity_resolution` | Entity Resolution | Hard | Merge disparate sales tables into a new table named `merged_sales` and deduplicate based on email. |
 | `expert_pii_audit` | Compliance Audit | Expert | **Multi-table**: Redact emails in logs AND drop the `ssn` column. |
 
 ## Reward Shaping

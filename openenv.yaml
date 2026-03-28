@@ -1,5 +1,5 @@
 version: "1.0"
-name: DataCleanEnv
+name: DataCleanOpenEnv
 description: "Data Privacy & Compliance Steward: Audit and clean messy SQLite databases."
 tags: ["openenv", "data-engineering", "sql", "compliance", "regex", "entity-resolution"]
 
