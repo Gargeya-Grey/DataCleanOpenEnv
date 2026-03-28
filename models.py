@@ -37,4 +37,4 @@ class MyState(State):
     step_count: int = 0
     prev_metric: float = 0.0
     max_steps: int = 15
-    final_score: float = 0.0
+    # Remove static final_score to avoid stale data

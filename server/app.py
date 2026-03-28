@@ -12,36 +12,38 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from openenv.core.env_server import Environment, create_fastapi_app
 from models import MyAction, MyObservation, MyState, ActionType
 
+DB_PATH = "dataclean.db"
+
 # Global variable to store the last created environment instance
 _last_env_instance: Optional[DataCleanEnv] = None
 
+# Global shared connection for :memory: persistence across instances
+_shared_conn = sqlite3.connect(":memory:", check_same_thread=False)
+
+def _sqlite_regexp_replace(pattern: str, replacement: str, string: str):
+    if string is None: return None
+    try:
+        return re.sub(pattern, replacement, string)
+    except Exception:
+        return string
+
+_shared_conn.create_function("REGEXP_REPLACE", 3, _sqlite_regexp_replace)
 class DataCleanEnv(Environment):
     def __init__(self):
         super().__init__()
         global _last_env_instance
         _last_env_instance = self
-        self.conn = sqlite3.connect(":memory:", check_same_thread=False)
-        self.cursor = self.conn.cursor()
-        self.conn.create_function("REGEXP_REPLACE", 3, self._sqlite_regexp_replace)
+        self.conn = _shared_conn
+        self.cursor = _shared_conn.cursor() # Get fresh cursor for this instance
         self._env_state = MyState()
-
-    @staticmethod
-    def _sqlite_regexp_replace(pattern: str, replacement: str, string: str):
-        if string is None: return None
-        try:
-            return re.sub(pattern, replacement, string)
-        except Exception:
-            return string
-
-    @property
     def state(self) -> MyState:
         return self._env_state
 
     def reset(self, task_id: Optional[str] = "easy_standardization", **kwargs) -> MyObservation:
         self._env_state = MyState(current_task=task_id)
         
-        # Wipe DB
-        self.cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
+        # Wipe DB using shared cursor
+        self.cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")
         tables = self.cursor.fetchall()
         for t in tables:
             try:
@@ -49,11 +51,10 @@ class DataCleanEnv(Environment):
             except sqlite3.OperationalError:
                 pass
             
-        # Seed Tasks
         if task_id == "easy_standardization":
             self.cursor.execute("CREATE TABLE users (id INTEGER PRIMARY KEY, date_of_birth TEXT)")
             self.cursor.executemany("INSERT INTO users (id, date_of_birth) VALUES (?, ?)",[
-                (1, "1990-01-01"), (2, "05/12/1985"), (3, "1992/08/20"), (4, "12-30-1999")
+                (1, "01-01-1990"), (2, "05/12/1985"), (3, "1992/08/20"), (4, "12-30-1999")
             ])
             self._env_state.prev_metric = self._grade_easy_task()
         elif task_id == "medium_pii_redaction":
@@ -86,6 +87,8 @@ class DataCleanEnv(Environment):
             raise ValueError(f"Unknown task: {task_id}")
             
         self.conn.commit()
+        # Sync the initial metric so we only reward IMPROVEMENT
+        self._env_state.prev_metric = self._grade_task()
         return self._get_observation("Environment reset successfully.")
 
     def step(self, action: MyAction) -> MyObservation:
@@ -122,7 +125,7 @@ class DataCleanEnv(Environment):
                     info["error"] = "destructive_action"
                 else:
                     self.cursor.execute(query)
-                    self.conn.commit()
+                    self.conn.commit() # MUTATION COMMIT
                     reward += 0.05
 
             elif action.action_type == ActionType.APPLY_REGEX_MASK:
@@ -131,16 +134,17 @@ class DataCleanEnv(Environment):
                 rep = action.parameters.get("replacement")
                 q = f"UPDATE {action.target_table} SET {col} = REGEXP_REPLACE(?, ?, {col})"
                 self.cursor.execute(q, (pat, rep))
-                self.conn.commit()
+                self.conn.commit() # MUTATION COMMIT
                 reward += 0.05
 
             elif action.action_type == ActionType.DROP_COLUMN:
                 col = action.parameters.get("column")
                 self.cursor.execute(f"ALTER TABLE {action.target_table} DROP COLUMN {col}")
-                self.conn.commit()
+                self.conn.commit() # MUTATION COMMIT
                 reward += 0.05
 
             current_metric = self._grade_task()
+            self._env_state.final_score = current_metric # Continuous update
             if current_metric > self._env_state.prev_metric:
                 reward += (current_metric - self._env_state.prev_metric) * 0.5
                 self._env_state.prev_metric = current_metric
@@ -192,34 +196,42 @@ class DataCleanEnv(Environment):
     def _grade_expert_task(self) -> float:
         score = 0.0
         try:
-            # 1. Check if SSN column was dropped (Compliance Requirement)
+            # 1. Check if SSN column was dropped
             self.cursor.execute("PRAGMA table_info(employees)")
-            cols = [c[1] for c in self.cursor.fetchall()]
+            cols = [c[1].lower() for c in self.cursor.fetchall()]
+            # print(f"DEBUG EXPERT COLS: {cols}", flush=True)
             if 'ssn' not in cols:
                 score += 0.4
             
             # 2. Check if emails in server_logs are masked
             self.cursor.execute("SELECT log_message FROM server_logs")
             logs = self.cursor.fetchall()
-            # If logs still contain '@', redaction failed
-            redacted_count = sum(1 for l in logs if '@' not in l[0])
-            if redacted_count == len(logs) and len(logs) > 0:
-                score += 0.6
-            elif len(logs) > 0:
-                score += (redacted_count / len(logs)) * 0.6
+            if not logs: return score
+            
+            # Count logs that no longer have a typical email pattern
+            redacted_count = sum(1 for l in logs if not re.search(r"[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+", l[0]))
+            # print(f"DEBUG REDACTED COUNT: {redacted_count}/{len(logs)}", flush=True)
+            score += (redacted_count / len(logs)) * 0.6
                 
             return min(1.0, score)
-        except Exception:
+        except Exception as e:
+            # print(f"DEBUG EXPERT ERR: {e}", flush=True)
             return 0.0
 
     def _grade_easy_task(self) -> float:
         try:
             self.cursor.execute("SELECT date_of_birth FROM users")
             rows = self.cursor.fetchall()
+            # print(f"DEBUG EASY ROWS: {rows}", flush=True)
             if not rows: return 0.0
-            correct = sum(1 for r in rows if r[0] and re.match(r"^\d{4}-\d{2}-\d{2}$", r[0]))
+            
+            # YYYY-MM-DD pattern
+            pat = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+            correct = sum(1 for r in rows if r[0] and pat.match(str(r[0]).strip()))
+            # print(f"DEBUG EASY CORRECT: {correct}/{len(rows)}", flush=True)
             return correct / len(rows)
-        except Exception:
+        except Exception as e:
+            # print(f"DEBUG EASY ERR: {e}", flush=True)
             return 0.0
 
     def _grade_medium_task(self) -> float:
@@ -256,9 +268,10 @@ class DataCleanEnv(Environment):
 _singleton_env: Optional[DataCleanEnv] = None
 
 def get_env() -> DataCleanEnv:
-    global _singleton_env
+    global _singleton_env, _last_env_instance
     if _singleton_env is None:
         _singleton_env = DataCleanEnv()
+    _last_env_instance = _singleton_env # Sync for extra endpoints
     return _singleton_env
 
 # Create FastAPI app using OpenEnv's utility with singleton factory
@@ -306,9 +319,9 @@ def api_tasks():
 
 @app.get("/grader")
 def api_grader():
-    if _last_env_instance:
-        return {"score": _last_env_instance.state.final_score}
-    return {"score": 0.0}
+    instance = _singleton_env or get_env()
+    score = instance._grade_task()
+    return {"score": score}
 
 @app.get("/baseline")
 def api_baseline():

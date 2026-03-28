@@ -70,7 +70,7 @@ pytest tests/test_dataclean.py
 # 3. Start local server
 uv run server
 
-# 4. Run inference baseline (requires API_BASE_URL, MODEL_NAME, HF_TOKEN)
+# 4. Run inference baseline (requires OPENAI_API_KEY or HF_TOKEN)
 python inference.py
 ```
 
