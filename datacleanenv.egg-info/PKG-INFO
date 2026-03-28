@@ -1,0 +1,81 @@
+Metadata-Version: 2.4
+Name: datacleanenv
+Version: 0.1.0
+Summary: Data Privacy & Compliance Steward: Audit and clean messy SQLite databases.
+Author: Gargeya
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+Requires-Dist: fastapi
+Requires-Dist: uvicorn
+Requires-Dist: pydantic
+Requires-Dist: openai
+Requires-Dist: pytest
+Requires-Dist: requests
+Requires-Dist: openenv-core>=0.2.0
+
+---
+title: DataCleanEnv
+emoji: 🛡️
+colorFrom: blue
+colorTo: green
+sdk: docker
+app_port: 8000
+tags:
+  - openenv
+---
+
+# DataCleanEnv: Data Privacy & Compliance Steward
+
+## Overview
+DataCleanEnv is a real-world OpenEnv environment where agents act as Data Compliance Officers. They must audit, clean, and standardize messy SQLite databases while ensuring sensitive PII (Personally Identifiable Information) is redacted according to compliance standards.
+
+## Motivation
+Modern agents need to be evaluated on their ability to handle sensitive production data safely. This environment provides high-fidelity SQLite interactions, rewarding precision and penalizing destructive or non-compliant actions.
+
+## Action Space
+- `RUN_SQL_UPDATE`: Execute raw SQL (e.g., `UPDATE`, `INSERT`, `ALTER`).
+- `APPLY_REGEX_MASK`: Specialized tool for PII redaction using `REGEXP_REPLACE`.
+- `DROP_COLUMN`: Safely remove sensitive columns for data retention compliance.
+- `SUBMIT_FINAL`: Terminate the episode and trigger final grading.
+
+## Observation Space
+- `schema_info`: Live DDL schema for all tables.
+- `sample_data`: Real-time data preview (5 rows per table).
+- `last_execution_status`: Success/Error trace from the database engine.
+
+## Tasks & Difficulty
+
+1. **Easy: Date Standardization (`easy_standardization`)**
+   - Standardize `date_of_birth` to ISO 8601 (YYYY-MM-DD).
+
+2. **Medium: PII Redaction (`medium_pii_redaction`)**
+   - Redact credit card numbers from `customer_message` text logs.
+
+3. **Hard: Entity Resolution (`hard_entity_resolution`)**
+   - Merge `sales_a` and `sales_b` into a deduplicated `merged_sales` table.
+
+4. **Expert: Compliance Audit (`expert_pii_audit`)**
+   - Multi-step: Redact emails in `server_logs` AND drop the `ssn` column in `employees`.
+
+## Reward Shaping (Varying Signal)
+- **Syntax Bonus (+0.05)**: Awarded for any valid SQL or Regex action that doesn't error.
+- **Progress Reward (Delta * 0.5)**: Continuous signal based on the improvement of the underlying grading metric.
+- **Safety Penalty (-0.5)**: Immediate termination for destructive actions (e.g., `DROP TABLE` when not requested).
+
+## Setup & Validation
+```bash
+# Install dependencies
+pip install -e .
+
+# Run Tests
+pytest tests/test_dataclean.py
+
+# Validate Spec
+openenv validate .
+```
+
+## Baseline Performance
+Run the following to see the agentic baseline (requires `OPENAI_API_KEY`):
+```bash
+python baseline.py
+```

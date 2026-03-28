@@ -1,0 +1,41 @@
+version: "1.0"
+name: DataCleanEnv
+description: "Data Privacy & Compliance Steward: Audit and clean messy SQLite databases."
+tags: ["openenv", "data-engineering", "sql", "compliance", "regex", "entity-resolution"]
+
+api:
+  type: fastapi
+  port: 8000
+
+tasks:
+  - id: easy_standardization
+    name: "Standardize mixed-format date_of_birth to ISO 8601"
+    difficulty: easy
+    metrics:
+      - name: format_accuracy
+        type: float
+        range: [0.0, 1.0]
+
+  - id: medium_pii_redaction
+    name: "Mask credit card numbers in free-text without altering surrounding text"
+    difficulty: medium
+    metrics:
+      - name: redaction_f1
+        type: float
+        range: [0.0, 1.0]
+
+  - id: hard_entity_resolution
+    name: "Merge conflicting sales databases with schema mismatches"
+    difficulty: hard
+    metrics:
+      - name: entity_resolution_f1
+        type: float
+        range: [0.0, 1.0]
+
+  - id: expert_pii_audit
+    name: "Compliance Audit: Cross-table PII detection and masking"
+    difficulty: expert
+    metrics:
+      - name: compliance_score
+        type: float
+        range: [0.0, 1.0]
