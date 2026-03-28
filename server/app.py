@@ -313,8 +313,11 @@ def api_grader():
 @app.get("/baseline")
 def api_baseline():
     import subprocess
+    import os
     try:
-        result = subprocess.run(["python", "baseline.py", "--quiet"], capture_output=True, text=True)
+        # Pass environment variables (like OPENAI_API_KEY / HF_TOKEN) to the subprocess
+        env = os.environ.copy()
+        result = subprocess.run(["python", "inference.py", "--quiet"], capture_output=True, text=True, env=env)
         return json.loads(result.stdout.splitlines()[-1])
     except Exception as e:
         return {"error": str(e)}
