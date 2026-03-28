@@ -46,7 +46,7 @@ Every step provides a rich context for reasoning:
 - **Safety Penalty (-0.5)**: Immediate episode termination for destructive actions (e.g., unauthorized `DROP TABLE`).
 
 ## Baseline Performance (GPT-4o-mini)
-The following scores were achieved using the included `baseline.py` script:
+The following scores were achieved using the included `inference.py` script:
 - **Easy**: 1.0 (100% precision)
 - **Medium**: 1.0 (100% redaction)
 - **Hard**: 0.8+ (depending on merge strategy)
@@ -56,7 +56,7 @@ The following scores were achieved using the included `baseline.py` script:
 - **Root (`/`)**: Health check and list of endpoints.
 - **`/tasks`**: Returns task metadata and the Action JSON schema.
 - **`/grader`**: Returns the `final_score` (0.0-1.0) for the current episode.
-- **`/baseline`**: Triggers the inference script and returns scores for all tasks.
+- **`/baseline`**: Triggers the `inference.py` script and returns scores for all tasks.
 - **`/reset`, `/step`, `/state`**: Standard OpenEnv API.
 
 ## Setup & Local Testing
@@ -69,6 +69,9 @@ pytest tests/test_dataclean.py
 
 # 3. Start local server
 uv run server
+
+# 4. Run inference baseline (requires API_BASE_URL, MODEL_NAME, HF_TOKEN)
+python inference.py
 ```
 
 **Submission Space**: [https://huggingface.co/spaces/grey8magic/DataCleanEnv](https://huggingface.co/spaces/grey8magic/DataCleanEnv)
