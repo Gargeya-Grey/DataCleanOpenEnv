@@ -74,4 +74,4 @@ uv run server
 python inference.py
 ```
 
-**Submission Space**: [https://huggingface.co/spaces/grey8magic/DataCleanEnv](https://huggingface.co/spaces/grey8magic/DataCleanEnv)
+**Submission Space**: [https://huggingface.co/spaces/grey8magic/DataCleanOpenEnv](https://huggingface.co/spaces/grey8magic/DataCleanOpenEnv)
