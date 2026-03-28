@@ -82,7 +82,7 @@ When finished, respond with action_type SUBMIT_FINAL."""
             print(f"Step {step+1}: Reward {reward}, Done: {done}")
             
             if done:
-                final_score = obs.metadata.get("final_score", 0.0)
+                final_score = obs.info.get("final_score", 0.0)
             
             messages.append({"role": "assistant", "content": action_text})
             messages.append({"role": "user", "content": f"Observation: {json.dumps(obs.to_dict())}\nReward: {reward}"})

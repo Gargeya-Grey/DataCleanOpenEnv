@@ -1,6 +1,7 @@
 from openenv.core.env_client import EnvClient, StepResult
 from models import MyAction, MyObservation, MyState
 from typing import Optional, Dict, Any
+import json
 
 class DataCleanEnvClient(EnvClient[MyAction, MyObservation, MyState]):
     """
@@ -17,9 +18,7 @@ class DataCleanEnvClient(EnvClient[MyAction, MyObservation, MyState]):
         }
 
     def _parse_result(self, payload: dict) -> StepResult[MyObservation]:
-        """Parse server's JSON response into a StepResult object."""
-        # The payload from create_fastapi_app standard /step endpoint
-        # typically contains 'observation', 'reward', 'done', and 'info'
+        # print(f"DEBUG CLIENT PAYLOAD: {json.dumps(payload)}", flush=True)
         obs_data = payload.get("observation", {})
         observation = MyObservation(
             schema_info=obs_data.get("schema_info", {}),
@@ -27,7 +26,7 @@ class DataCleanEnvClient(EnvClient[MyAction, MyObservation, MyState]):
             last_execution_status=obs_data.get("last_execution_status", ""),
             reward=payload.get("reward", 0.0),
             done=payload.get("done", False),
-            metadata=payload.get("metadata", {})
+            info=obs_data.get("info", {})
         )
         return StepResult(
             observation=observation,

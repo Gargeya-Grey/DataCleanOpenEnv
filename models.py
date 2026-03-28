@@ -20,7 +20,7 @@ class MyObservation(Observation):
     last_execution_status: str
     reward: float = 0.0
     done: bool = False
-    metadata: Dict[str, Any] = Field(default_factory=dict)
+    info: Dict[str, Any] = Field(default_factory=dict)
     
     def to_dict(self):
         return {
@@ -29,7 +29,7 @@ class MyObservation(Observation):
             "last_execution_status": self.last_execution_status,
             "reward": self.reward,
             "done": self.done,
-            "metadata": self.metadata
+            "info": self.info
         }
 
 class MyState(State):

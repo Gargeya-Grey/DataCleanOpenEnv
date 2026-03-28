@@ -154,13 +154,11 @@ class DataCleanEnv(Environment):
             status = f"SQL Error: {str(e)}"
             reward -= 0.1
 
-        obs = self._get_observation(status)
-        obs.reward = reward
-        obs.done = done
-        obs.metadata = metadata
+        obs = self._get_observation(status, reward, done, info=metadata)
+        print(f"DEBUG SERVER OBS INFO: {obs.info}", flush=True)
         return obs
 
-    def _get_observation(self, status: str) -> MyObservation:
+    def _get_observation(self, status: str, reward: float = 0.0, done: bool = False, info: dict = None) -> MyObservation:
         self.cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
         tables =[r[0] for r in self.cursor.fetchall()]
         schema_info = {}
@@ -179,7 +177,10 @@ class DataCleanEnv(Environment):
         return MyObservation(
             schema_info=schema_info, 
             sample_data=sample_data, 
-            last_execution_status=status
+            last_execution_status=status,
+            reward=reward,
+            done=done,
+            info=info or {}
         )
 
     def _grade_task(self) -> float:
