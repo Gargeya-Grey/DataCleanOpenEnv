@@ -1,7 +1,7 @@
 import os
 import json
+import asyncio
 import argparse
-import requests
 from typing import List, Dict, Any
 from openai import OpenAI
 from client import DataCleanEnvClient
@@ -15,17 +15,17 @@ MODEL_NAME = os.getenv("MODEL_NAME", "gpt-4o-mini")
 # Environment Config
 ENV_URL = "http://localhost:8000"
 
-def run_task(task_id: str, client: OpenAI, env_client: DataCleanEnvClient, max_steps: int = 10) -> float:
+async def run_task(task_id: str, client: OpenAI, env_client: DataCleanEnvClient, max_steps: int = 10) -> float:
     print(f"--- Starting Task: {task_id} ---")
     
     # 1. Reset Environment
     try:
-        obs = env_client.reset(task_id=task_id)
+        reset_res = await env_client.reset(task_id=task_id)
+        obs = reset_res.observation
     except Exception as e:
         print(f"Reset failed: {e}")
         return 0.0
 
-    history = []
     done = False
     step = 0
     final_score = 0.0
@@ -51,9 +51,10 @@ Guidelines:
 
 When finished, respond with action_type SUBMIT_FINAL."""
 
+    # Convert Observation to dict for JSON serialization
     messages = [
         {"role": "system", "content": system_prompt},
-        {"role": "user", "content": f"Initial Observation: {json.dumps(obs.__dict__ if hasattr(obs, '__dict__') else obs)}"}
+        {"role": "user", "content": f"Initial Observation: {json.dumps(obs.to_dict())}"}
     ]
 
     while not done and step < max_steps:
@@ -70,7 +71,7 @@ When finished, respond with action_type SUBMIT_FINAL."""
             
             # 3. Environment Step
             action = MyAction(**action_data)
-            step_result = env_client.step(action)
+            step_result = await env_client.step(action)
             
             obs = step_result.observation
             reward = step_result.reward
@@ -79,11 +80,10 @@ When finished, respond with action_type SUBMIT_FINAL."""
             print(f"Step {step+1}: Reward {reward}, Done: {done}")
             
             if done:
-                # final_score is in info which is in observation in our implementation
                 final_score = obs.info.get("final_score", 0.0)
             
             messages.append({"role": "assistant", "content": action_text})
-            messages.append({"role": "user", "content": f"Observation: {json.dumps(obs.__dict__)}\nReward: {reward}"})
+            messages.append({"role": "user", "content": f"Observation: {json.dumps(obs.to_dict())}\nReward: {reward}"})
             step += 1
             
         except Exception as e:
@@ -93,7 +93,7 @@ When finished, respond with action_type SUBMIT_FINAL."""
     print(f"Task {task_id} Completed. Final Score: {final_score}")
     return final_score
 
-def main():
+async def async_main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--quiet", action="store_true")
     args = parser.parse_args()
@@ -110,8 +110,11 @@ def main():
     results = {}
     
     for tid in task_ids:
-        score = run_task(tid, client, env_client)
+        score = await run_task(tid, client, env_client)
         results[tid] = score
+
+    # Clean up client
+    await env_client.close()
 
     if args.quiet:
         print(json.dumps(results))
@@ -123,4 +126,4 @@ def main():
             print(f"{tid:25}: {score}")
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(async_main())

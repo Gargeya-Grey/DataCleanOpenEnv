@@ -21,6 +21,16 @@ class MyObservation(Observation):
     reward: float = 0.0
     done: bool = False
     info: Dict[str, Any] = Field(default_factory=dict)
+    
+    def to_dict(self):
+        return {
+            "schema_info": self.schema_info,
+            "sample_data": self.sample_data,
+            "last_execution_status": self.last_execution_status,
+            "reward": self.reward,
+            "done": self.done,
+            "info": self.info
+        }
 
 class MyState(State):
     current_task: Optional[str] = None
